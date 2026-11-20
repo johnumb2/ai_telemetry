@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useId, useRef } from 'react'
 
 export interface AreaChartProps {
   points: Array<{ t: number; v: number }>
@@ -34,9 +34,24 @@ export function AreaChart({ points, accent, height = 280, formatValue, unit = ''
   const plotW = W - mLeft - mRight
   const plotH = H - mTop - mBottom
 
+  // Refs are driven imperatively on mouse-move (no per-move React re-render),
+  // so long history windows (thousands of points) stay smooth while hovering.
+  const svgRef = useRef<SVGSVGElement>(null)
+  const hoverGroupRef = useRef<SVGGElement>(null)
+  const hoverLineRef = useRef<SVGLineElement>(null)
+  const hoverDotRef = useRef<SVGCircleElement>(null)
+  const hoverLabelRef = useRef<SVGTextElement>(null)
+
   if (points.length < 2) {
     return (
-      <svg className="area-chart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="no data yet">
+      <svg
+        ref={svgRef}
+        className="area-chart"
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        role="img"
+        aria-label="no data yet"
+      >
         <text x={W / 2} y={H / 2} fill="var(--text-mute)" fontSize="14" textAnchor="middle" fontFamily="JetBrains Mono, monospace">
           waiting for data…
         </text>
@@ -85,13 +100,69 @@ export function AreaChart({ points, accent, height = 280, formatValue, unit = ''
   const curV = points[points.length - 1].v
   const curLabel = (formatValue ? formatValue(curV) : curV.toLocaleString()) + unit
 
+  // --- hover: find the nearest point to the cursor and move the crosshair
+  // group in place (direct attribute writes, no re-render).
+  const onMove = (e: React.MouseEvent<SVGSVGElement>): void => {
+    const svg = svgRef.current
+    const grp = hoverGroupRef.current
+    if (!svg || !grp) return
+    const rect = svg.getBoundingClientRect()
+    if (rect.width === 0) return
+    const vbX = ((e.clientX - rect.left) / rect.width) * W
+    let t = tMin + ((vbX - mLeft) / plotW) * tSpan
+    if (t < tMin) t = tMin
+    else if (t > tMax) t = tMax
+    // binary search for the closest stored time
+    let lo = 0
+    let hi = points.length - 1
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1
+      if (points[mid].t < t) lo = mid + 1
+      else hi = mid
+    }
+    let idx = lo
+    if (idx > 0 && Math.abs(points[idx - 1].t - t) < Math.abs(points[idx].t - t)) idx -= 1
+    const p = points[idx]
+    const xV = mLeft + ((p.t - tMin) / tSpan) * plotW
+    const yV = mTop + (1 - (p.v - yMin) / (yMax - yMin)) * plotH
+    const line = hoverLineRef.current
+    const dot = hoverDotRef.current
+    const label = hoverLabelRef.current
+    if (line) {
+      line.setAttribute('x1', String(xV))
+      line.setAttribute('x2', String(xV))
+      line.setAttribute('y1', String(mTop))
+      line.setAttribute('y2', String(mTop + plotH))
+    }
+    if (dot) {
+      dot.setAttribute('cx', String(xV))
+      dot.setAttribute('cy', String(yV))
+    }
+    if (label) {
+      const val = formatValue ? formatValue(p.v) : p.v.toLocaleString()
+      label.textContent = `${val}${unit ? ` ${unit.trim()}` : ''}  ·  ${new Date(p.t).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+      const atEnd = xV > W - mRight - 160
+      label.setAttribute('x', String(atEnd ? xV - 8 : xV + 8))
+      label.setAttribute('y', String(mTop - 12))
+      label.setAttribute('text-anchor', atEnd ? 'end' : 'start')
+    }
+    grp.style.display = ''
+  }
+  const onLeave = (): void => {
+    const grp = hoverGroupRef.current
+    if (grp) grp.style.display = 'none'
+  }
+
   return (
     <svg
+      ref={svgRef}
       className="area-chart"
       viewBox={`0 0 ${W} ${H}`}
       preserveAspectRatio="none"
       role="img"
       aria-label={`area chart, current value ${curLabel}`}
+      onMouseMove={onMove}
+      onMouseLeave={onLeave}
     >
       <defs>
         <linearGradient id={`grad-${uid}`} x1="0" y1="0" x2="0" y2="1">
@@ -145,6 +216,20 @@ export function AreaChart({ points, accent, height = 280, formatValue, unit = ''
       >
         {curLabel}
       </text>
+
+      <g ref={hoverGroupRef} style={{ display: 'none' }}>
+        <line ref={hoverLineRef} stroke="rgba(255,255,255,0.28)" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+        <circle ref={hoverDotRef} r="4" fill={accent} stroke="rgba(0,0,0,0.4)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+        <text
+          ref={hoverLabelRef}
+          fill="var(--text)"
+          fontSize="12"
+          fontWeight="600"
+          fontFamily="JetBrains Mono, monospace"
+          style={{ paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.6)', strokeWidth: 3 }}
+          vectorEffect="non-scaling-stroke"
+        />
+      </g>
     </svg>
   )
 }
