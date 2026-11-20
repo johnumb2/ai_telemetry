@@ -51,6 +51,8 @@ var helpText = map[string]string{
 	"host_gpu_vram_used_percent": "VRAM used percentage",
 	"host_gpu_power_watts":       "GPU power draw in watts",
 	"host_gpu_fan_percent":       "GPU fan speed percentage",
+	"host_gpu_fan_rpm":           "GPU fan speed in RPM",
+	"host_gpu_fan_max_rpm":       "GPU fan maximum speed in RPM",
 	"host_nvme_temp_celsius":     "NVMe drive temperature in Celsius",
 }
 
@@ -271,6 +273,8 @@ type gpuInfo struct {
 	MemTemp      float64
 	PowerWatts   float64
 	FanPct       float64
+	FanRPM       int64
+	FanMaxRPM    int64
 }
 
 func readGPU() *gpuInfo {
@@ -358,6 +362,12 @@ func gpuHwmonRead(info *gpuInfo, p string) {
 	wMin, okMin := readInt(filepath.Join(p, "pwm1_min"))
 	if okP && okMax && okMin && wMax > wMin {
 		info.FanPct = float64(pw-wMin) / float64(wMax-wMin) * 100
+	}
+	if v, ok := readInt(filepath.Join(p, "fan1_input")); ok && v > 0 {
+		info.FanRPM = v
+	}
+	if v, ok := readInt(filepath.Join(p, "fan1_max")); ok && v > 0 {
+		info.FanMaxRPM = v
 	}
 }
 
@@ -496,6 +506,12 @@ func collectMetrics() []metric {
 		}
 		if info.FanPct >= 0 {
 			add("host_gpu_fan_percent", info.FanPct)
+		}
+		if info.FanRPM > 0 {
+			add("host_gpu_fan_rpm", float64(info.FanRPM))
+			if info.FanMaxRPM > 0 {
+				add("host_gpu_fan_max_rpm", float64(info.FanMaxRPM))
+			}
 		}
 	}
 

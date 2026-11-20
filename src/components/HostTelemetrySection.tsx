@@ -51,7 +51,9 @@ export function HostTelemetrySection({ hostSamples, hostStatus }: HostTelemetryS
 
       <div className="kpi-secondary" aria-label="Secondary host metrics">
         {chip('RAM used', chips.ramUsed === undefined ? '—' : `${chips.ramUsed.toFixed(1)} %`, 'var(--blue)')}
-        {chip('GPU fan', chips.gpuFan === undefined ? '—' : `${chips.gpuFan.toFixed(0)} %`, 'var(--cyan)')}
+        {chip('GPU fan', chips.gpuFanRpm === undefined
+          ? (chips.gpuFan === undefined ? '—' : `${chips.gpuFan.toFixed(0)} %`)
+          : `${Math.round(chips.gpuFanRpm)} rpm${chips.gpuFan !== undefined ? ` (${chips.gpuFan.toFixed(0)}%)` : ''}`, 'var(--cyan)')}
         {chip('VRAM used', chips.vramUsedGb === undefined ? '—' : `${chips.vramUsedGb.toFixed(1)} GB`, 'var(--violet)')}
         {chip('Processes', chips.processes === undefined ? '—' : `${Math.round(chips.processes)}`, 'var(--amber)')}
         {chip('NVMe temp', chips.nvmeMax === undefined ? '—' : `${chips.nvmeMax.toFixed(1)} °C`, 'var(--rose)')}

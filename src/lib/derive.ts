@@ -276,10 +276,13 @@ export const METRICS: MetricSpec[] = [
  * chart/explorer can be driven independently from the vLLM endpoint.
  */
 export const HOST_METRICS: MetricSpec[] = [
-  { id: 'gpuTemp', label: 'GPU temp', baseName: 'host_gpu_temp_celsius', comboLabels: { part: 'edge' }, stat: 'gauge', unit: '°C', scale: 1, family: 'rose', isKpi: true },
+  { id: 'gpuTemp', label: 'GPU edge', baseName: 'host_gpu_temp_celsius', comboLabels: { part: 'edge' }, stat: 'gauge', unit: '°C', scale: 1, family: 'rose', isKpi: true },
+  { id: 'gpuJuncTemp', label: 'GPU junction', baseName: 'host_gpu_temp_celsius', comboLabels: { part: 'junction' }, stat: 'gauge', unit: '°C', scale: 1, family: 'rose', isKpi: true },
+  { id: 'gpuMemTemp', label: 'GPU memory', baseName: 'host_gpu_temp_celsius', comboLabels: { part: 'memory' }, stat: 'gauge', unit: '°C', scale: 1, family: 'rose', isKpi: true },
   { id: 'gpuBusy', label: 'GPU busy', baseName: 'host_gpu_busy_percent', stat: 'gauge', unit: '%', scale: 1, family: 'amber', isKpi: true },
   { id: 'gpuVram', label: 'GPU VRAM', baseName: 'host_gpu_vram_used_percent', stat: 'gauge', unit: '%', scale: 1, family: 'violet', isKpi: true },
   { id: 'gpuPower', label: 'GPU power', baseName: 'host_gpu_power_watts', stat: 'gauge', unit: 'W', scale: 1, family: 'cyan', isKpi: true },
+  { id: 'gpuFanRpm', label: 'GPU fan', baseName: 'host_gpu_fan_rpm', stat: 'gauge', unit: 'rpm', scale: 1, family: 'green', isKpi: true },
   { id: 'cpuUsage', label: 'CPU usage', baseName: 'host_cpu_usage_percent', stat: 'gauge', unit: '%', scale: 1, family: 'blue', isKpi: true },
   { id: 'cpuTemp', label: 'CPU temp', baseName: 'host_cpu_temp_celsius', stat: 'gauge', unit: '°C', scale: 1, family: 'rose', isKpi: true },
   { id: 'cpuLoad', label: 'CPU load (1m)', baseName: 'host_cpu_load', comboLabels: { period: '1m' }, stat: 'gauge', unit: '', scale: 1, family: 'amber', isKpi: false },

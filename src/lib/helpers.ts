@@ -44,6 +44,8 @@ export function computeSecondaryChips(samples: Sample[]): SecondaryChips {
 export interface HostChips {
   ramUsed: number | undefined
   gpuFan: number | undefined
+  gpuFanRpm: number | undefined
+  gpuFanMaxRpm: number | undefined
   vramUsedGb: number | undefined
   processes: number | undefined
   nvmeMax: number | undefined
@@ -55,6 +57,8 @@ export function computeHostChips(samples: Sample[]): HostChips {
   const empty: HostChips = {
     ramUsed: undefined,
     gpuFan: undefined,
+    gpuFanRpm: undefined,
+    gpuFanMaxRpm: undefined,
     vramUsedGb: undefined,
     processes: undefined,
     nvmeMax: undefined,
@@ -65,6 +69,8 @@ export function computeHostChips(samples: Sample[]): HostChips {
 
   const ramUsed = seriesValue(cur, 'host_ram_used_percent')
   const gpuFan = seriesValue(cur, 'host_gpu_fan_percent')
+  const gpuFanRpm = seriesValue(cur, 'host_gpu_fan_rpm')
+  const gpuFanMaxRpm = seriesValue(cur, 'host_gpu_fan_max_rpm')
   const vramUsedGb = seriesValue(cur, 'host_gpu_vram_used_bytes') !== undefined ? seriesValue(cur, 'host_gpu_vram_used_bytes')! / 1e9 : undefined
   const processes = seriesValue(cur, 'host_process_count')
 
@@ -76,7 +82,7 @@ export function computeHostChips(samples: Sample[]): HostChips {
   const up = seriesValue(cur, 'host_uptime_seconds')
   const uptimeH = up !== undefined ? up / 3600 : undefined
 
-  return { ramUsed, gpuFan, vramUsedGb, processes, nvmeMax, uptimeH }
+  return { ramUsed, gpuFan, gpuFanRpm, gpuFanMaxRpm, vramUsedGb, processes, nvmeMax, uptimeH }
 }
 
 export { windowedRatio }
