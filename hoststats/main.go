@@ -348,8 +348,10 @@ func gpuHwmonRead(info *gpuInfo, p string) {
 	if v, ok := readFloat(filepath.Join(p, "temp3_input")); ok && v > 0 {
 		info.MemTemp = v / 1000
 	}
+	// amdgpu hwmon power1_average is in microWatts (see
+	// docs.kernel.org/gpu/amdgpu/thermal.html) — divide by 1e6.
 	if v, ok := readInt(filepath.Join(p, "power1_average")); ok && v > 0 {
-		info.PowerWatts = float64(v) / 1000
+		info.PowerWatts = float64(v) / 1e6
 	}
 	pw, okP := readInt(filepath.Join(p, "pwm1"))
 	wMax, okMax := readInt(filepath.Join(p, "pwm1_max"))
