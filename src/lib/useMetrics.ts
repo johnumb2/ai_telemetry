@@ -52,7 +52,10 @@ const SAMPLE_CAP = 240
 const EVENT_CAP = 40
 const OFFLINE_AFTER = 4
 const DEMO_BOOTSTRAP = 40
-const FETCH_TIMEOUT_MS = 5000
+// Bumped to 30s: vLLM's /metrics payload is large and its serialization can
+// stall several seconds under heavy batch load; a short timer turned that
+// into scary "endpoint error" flashes (status bar + activity feed).
+const FETCH_TIMEOUT_MS = 30000
 
 const initialState = (): MetricsState => ({
   status: 'reconnecting',
@@ -142,14 +145,14 @@ export function useMetrics(): MetricsHook {
         const dTok = tokCur - tokPrev
         const dPre = preCur - prePrev
 
-        if (dReq > 0) appendEvent('req', `request completed (counter +${Math.round(dReq)})`)
-        if (dTok > 0) appendEvent('tokens', `tokens +${Math.round(dTok).toLocaleString('en-US')} this tick`)
-        if (dPre > 0) appendEvent('preempt', `preemption recorded (+${Math.round(dPre)})`)
+        if (dReq > 0) appendEvent('req', `${Math.round(dReq)} request(s) completed — finished inference jobs`)
+        if (dTok > 0) appendEvent('tokens', `${Math.round(dTok).toLocaleString('en-US')} output tokens generated`)
+        if (dPre > 0) appendEvent('preempt', `${Math.round(dPre)} preemption(s) — a running job was interrupted and is being restarted`)
       }
 
       const curEngine = sampleEngineState(sample)
       if (lastEngineRef.current !== null && lastEngineRef.current !== curEngine && curEngine !== 'unknown') {
-        appendEvent('state', curEngine === 'awake' ? 'engine state → AWAKE' : 'engine state → SLEEPING')
+        appendEvent('state', curEngine === 'awake' ? 'engine AWAKE — loaded in GPU memory, serving requests' : 'engine SLEEPING — model offloaded, waiting for the next request')
       }
       lastEngineRef.current = curEngine
 
@@ -165,7 +168,7 @@ export function useMetrics(): MetricsHook {
     }
 
     const onOk = (parsed: Parsed, ms: number): void => {
-      if (prevErrorRef.current > 0) appendEvent('conn', 'connection re-established')
+      if (prevErrorRef.current > 0) appendEvent('conn', 'connection re-established — endpoint is answering again')
       errorsRef.current = 0
       prevErrorRef.current = 0
       pushSample(toSample(parsed), parsed, Math.round(ms))
@@ -178,15 +181,15 @@ export function useMetrics(): MetricsHook {
       const consecutive = errorsRef.current
       const status: ConnStatus = consecutive >= OFFLINE_AFTER ? 'offline' : 'reconnecting'
       const finalHint =
-        hint ??
+        (hint ?? 'the metrics endpoint did not answer') +
         (status === 'offline'
-          ? 'endpoint unreachable — check the URL in settings'
-          : 'retrying…')
+          ? ' — no response on 4+ polls: endpoint is down or the URL in settings is wrong'
+          : ` · retrying (attempt ${consecutive} of ${OFFLINE_AFTER} before OFFLINE)`)
       appendEvent(
         'conn',
         status === 'offline'
-          ? 'endpoint unreachable — OFFLINE'
-          : `endpoint error (attempt ${consecutive}) — reconnecting`,
+          ? `${hint ?? 'the metrics endpoint did not answer'} · no response on ${consecutive} polls · OFFLINE`
+          : `${hint ?? 'the metrics endpoint did not answer'} · retrying (attempt ${consecutive})`,
       )
       setState((p) => ({
         ...p,
@@ -247,14 +250,17 @@ export function useMetrics(): MetricsHook {
         .then((resp) => {
           window.clearTimeout(timer)
           if (!resp.ok) {
-            const hint = resp.status === 404 ? 'endpoint not found — check your path' : `HTTP ${resp.status} from endpoint`
+            const hint =
+              resp.status === 404
+                ? 'endpoint not found — the /metrics path returned 404'
+                : `the endpoint answered but with HTTP ${resp.status}`
             onError(hint)
             return
           }
           return resp.text().then((text) => {
             const parsed = parseMetrics(text)
             if (parsed.series.length === 0) {
-              onError('response contained no parseable metrics')
+              onError('the endpoint returned no metric lines to parse')
               return
             }
             onOk(parsed, performance.now() - started)
@@ -263,11 +269,11 @@ export function useMetrics(): MetricsHook {
         .catch((err: unknown) => {
           window.clearTimeout(timer)
           if (err instanceof DOMException && err.name === 'AbortError') {
-            onError('fetch timed out — endpoint is not responding')
+            onError('the endpoint took longer than 30s to reply — vLLM can serialize slowly under heavy batch load')
           } else {
             const hint = isCrossOrigin(url)
               ? 'browser blocked the request — CORS. Use the dev-server proxy or enable CORS on the server'
-              : 'network error — endpoint unreachable'
+              : 'network error — the endpoint could not be reached over the network'
             onError(hint)
           }
         })

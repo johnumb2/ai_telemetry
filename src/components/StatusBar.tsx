@@ -26,6 +26,14 @@ const STATUS_META: Record<ConnStatus, { label: string; color: string; pulse: boo
   demo: { label: 'DEMO', color: 'var(--violet)', pulse: true },
 }
 
+/** Plain-language meaning of each status-dot state, shown in the legend. */
+const STATUS_LEGEND: Record<ConnStatus, string> = {
+  live: 'every poll got a successful response from the metrics endpoint',
+  reconnecting: 'the last poll failed — the app is retrying every poll interval',
+  offline: 'failed 4+ polls in a row — the endpoint is down or the URL is wrong',
+  demo: 'no real endpoint — data is simulated, not measured',
+}
+
 function fmtClock(t: number | null): string {
   if (t === null) return '--:--:--'
   const d = new Date(t)
@@ -61,9 +69,27 @@ export function StatusBar({ status, endpoint, pollMs, lastUpdated, fetchLatency,
     <div className={`status-bar status-${status}`} role="status" aria-live="polite">
       <div className="status-left">
         <span className="wordmark" aria-hidden="true">PULSE</span>
-        <span className="pulse-dot" data-pulse={meta.pulse} style={{ backgroundColor: meta.color, color: meta.color } as CSSProperties} />
-        <span className="status-label" style={{ color: meta.color }}>{meta.label}</span>
+        <span className="pulse-dot" data-pulse={meta.pulse} style={{ backgroundColor: meta.color, color: meta.color } as CSSProperties} title={STATUS_LEGEND[status]} />
+        <span className="status-label" style={{ color: meta.color }} title={`${meta.label} — ${STATUS_LEGEND[status]}`}>{meta.label}</span>
         {hint && <span className="status-hint" title={hint}>{hint}</span>}
+        <span className="status-legend">
+          <span className="status-legend-chip" title="green = receiving data" style={{ color: 'var(--green)' }}>
+            <span className="status-legend-dot" style={{ backgroundColor: 'var(--green)' }} />
+            live
+          </span>
+          <span className="status-legend-chip" title="amber = a poll failed, retrying" style={{ color: 'var(--amber)' }}>
+            <span className="status-legend-dot" style={{ backgroundColor: 'var(--amber)' }} />
+            retrying
+          </span>
+          <span className="status-legend-chip" title="red = endpoint unreachable" style={{ color: 'var(--rose)' }}>
+            <span className="status-legend-dot" style={{ backgroundColor: 'var(--rose)' }} />
+            offline
+          </span>
+          <span className="status-legend-chip" title="violet = simulated data" style={{ color: 'var(--violet)' }}>
+            <span className="status-legend-dot" style={{ backgroundColor: 'var(--violet)' }} />
+            demo
+          </span>
+        </span>
       </div>
 
       <div className="status-center">

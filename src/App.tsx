@@ -149,6 +149,19 @@ function Dashboard() {
         <a className="footer-link" href={settings.endpoint} target="_blank" rel="noreferrer">
           {settings.endpoint}
         </a>
+        <span className="footer-legend" title="where each panel on this page gets its data">
+          live + activity ← this page polls{' '}
+          <a className="footer-link" href="/metrics" target="_blank" rel="noreferrer">
+            /metrics
+          </a>{' '}
+          (vLLM) each poll
+          <span className="footer-sep">·</span>
+          host telemetry ← the <code>hoststats</code> sidecar on the same machine
+          <span className="footer-sep">·</span>
+          history ← the Go <code>retainer</code> scrape recorder (15s scrape, 90 days)
+          <span className="footer-sep">·</span>
+          connection events are this page ↔ /metrics only — a red dot does not mean the recorder stopped
+        </span>
       </footer>
     </div>
   )

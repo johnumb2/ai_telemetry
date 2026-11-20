@@ -169,6 +169,28 @@ body {
   white-space: nowrap;
 }
 
+.status-legend {
+  display: inline-flex;
+  gap: 9px;
+  margin-left: 10px;
+  padding-left: 10px;
+  border-left: 1px solid var(--border);
+}
+.status-legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  cursor: help;
+}
+.status-legend-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
 .endpoint {
   font-family: var(--font-mono);
   font-size: 12px;
@@ -739,6 +761,23 @@ body {
   border-bottom: 1px dotted var(--border);
 }
 .footer-link:hover { color: var(--cyan); border-bottom-color: var(--cyan); }
+.footer-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 14px;
+  padding-left: 14px;
+  border-left: 1px solid var(--border);
+  cursor: help;
+}
+.footer-sep {
+  color: var(--text-mute);
+  opacity: 0.6;
+}
+.app-footer code {
+  color: var(--text-dim);
+  background: transparent;
+}
 
 /* ---------- focus & motion ---------- */
 :focus-visible {
