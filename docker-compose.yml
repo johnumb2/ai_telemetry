@@ -1,0 +1,16 @@
+services:
+  pulse:
+    build: .
+    container_name: pulse-ops
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    # Reach the vLLM server from this container.
+    # - On the vLLM host (bridge network): resolve the host via host.docker.internal
+    # - Alternative: add `network_mode: host`, drop ports, and set
+    #   METRICS_URL=http://127.0.0.1:18982/metrics (no port mapping needed)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      # Change 18982 to whatever port vLLM serves its API/metrics on
+      METRICS_URL: http://host.docker.internal:18982/metrics
