@@ -505,6 +505,37 @@ body {
 }
 .demo-offer span { font-size: 12px; color: var(--text-dim); }
 
+/* ---------- history panel ---------- */
+.range-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.range-pill {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-mute);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  padding: 6px 11px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.range-pill:hover { color: var(--text); border-color: var(--border-strong); }
+.range-pill.on {
+  background: rgba(34, 211, 238, 0.15);
+  border-color: rgba(34, 211, 238, 0.5);
+  color: var(--cyan);
+}
+
+.history-hint {
+  padding: 8px 14px 12px;
+}
+.history-hint span { font-size: 12px; color: var(--text-mute); }
+
 /* ---------- two-col section ---------- */
 .two-col {
   display: grid;

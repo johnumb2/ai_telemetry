@@ -5,12 +5,14 @@
 #   - __METRICS_PROXY__    : the absolute URL to the metrics endpoint
 #   - __HOST_METRICS_PROXY__ : absolute URL to the in-container hoststats sidecar
 #   - __AUTH_PROXY__       : absolute URL to the in-container auths sidecar
+#   - __RETAINER_PROXY__   : absolute URL to the in-container retainer sidecar
 set -eu
 
 APP_PORT="${APP_PORT:-80}"
 METRICS_URL="${METRICS_URL:-http://127.0.0.1:18982/metrics}"
 HOST_METRICS_URL="${HOST_METRICS_URL:-http://127.0.0.1:9340/metrics}"
 AUTH_URL="${AUTH_URL:-http://127.0.0.1:9341}"
+RETAINER_URL="${RETAINER_URL:-http://127.0.0.1:9342}"
 
 # Normalize scheme
 case "${METRICS_URL}" in
@@ -51,12 +53,15 @@ sed -e "s|__APP_PORT__|${APP_PORT}|g" \
     -e "s|__METRICS_PROXY__|${proxy}|g" \
     -e "s|__HOST_METRICS_PROXY__|${HOST_METRICS_URL}|g" \
     -e "s|__AUTH_PROXY__|${auth_url}|g" \
+    -e "s|__RETAINER_PROXY__|${RETAINER_URL}|g" \
     /opt/pulse/nginx.conf.template > /etc/nginx/conf.d/default.conf
 
-# Start the auth sidecar (SQLite) and the host telemetry sidecar in the
-# background; nginx proxies /api/* + /__auth -> auths and /host-metrics -> hoststats.
+# Start the auth sidecar (SQLite), the host telemetry sidecar, and the
+# history recaller (SQLite) in the background; nginx proxies /api/* + /__auth
+# -> auths, /api/history/* -> retainer, and /host-metrics -> hoststats.
 /opt/pulse/auths &
 /opt/pulse/hoststats &
+/opt/pulse/retainer &
 
 # Wait for auths to open its port (busybox wget, no curl/nc on alpine); fall
 # back to a short fixed delay. nginx's auth_request subrequests fail-closed

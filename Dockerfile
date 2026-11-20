@@ -17,8 +17,10 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY hoststats ./hoststats
 COPY auths ./auths
+COPY retainer ./retainer
 RUN CGO_ENABLED=0 go build -o /out/hoststats ./hoststats
 RUN CGO_ENABLED=0 go build -o /out/auths ./auths
+RUN CGO_ENABLED=0 go build -o /out/retainer ./retainer
 
 # --- runtime stage: serve the SPA + reverse proxy /metrics + auth ---
 FROM nginx:1.27-alpine
@@ -30,6 +32,7 @@ COPY docker/entrypoint.sh /opt/pulse/entrypoint.sh
 COPY docker/nginx.conf.template /opt/pulse/nginx.conf.template
 COPY --from=go-build /out/hoststats /opt/pulse/hoststats
 COPY --from=go-build /out/auths /opt/pulse/auths
+COPY --from=go-build /out/retainer /opt/pulse/retainer
 COPY --from=build /app/dist /usr/share/nginx/html
 
 RUN chmod +x /opt/pulse/entrypoint.sh

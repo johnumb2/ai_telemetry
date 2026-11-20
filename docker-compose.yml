@@ -36,3 +36,12 @@ services:
       SMTP_USER: ""
       SMTP_PASS: ""
       SMTP_FROM: ""
+      # --- history (the retainer sidecar: 15s scrapes of both sources into
+      # /data/history.db, 90-day retention, auth-gated query API under
+      # /api/history/query + /api/history/series) ---
+      RETAINER_ADDR: "127.0.0.1:9342"
+      RETAINER_DB_PATH: /data/history.db
+      RETAINER_VLLM_URL: http://host.docker.internal:18982/metrics
+      RETAINER_HOST_URL: http://127.0.0.1:9340/metrics
+      RETAINER_INTERVAL_SECONDS: "15"
+      RETAINER_RETENTION_DAYS: "90"

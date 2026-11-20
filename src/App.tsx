@@ -11,6 +11,7 @@ import { MetricsExplorer } from './components/MetricsExplorer'
 import { MetricChart } from './components/MetricChart'
 import { StatusBar } from './components/StatusBar'
 import { HostTelemetrySection } from './components/HostTelemetrySection'
+import { HistorySection } from './components/HistorySection'
 import { LoginPage } from './components/LoginPage'
 
 const FAMILY_COLOR: Record<MetricFamily, string> = {
@@ -132,6 +133,8 @@ function Dashboard() {
         />
 
         <HostTelemetrySection hostSamples={state.hostSamples} hostStatus={state.hostStatus} />
+
+        <HistorySection />
 
         <div className="two-col">
           <MetricsExplorer parsed={mergedParsed} />
