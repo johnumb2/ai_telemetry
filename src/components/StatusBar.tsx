@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { ConnStatus } from '../lib/useMetrics'
 import { pollMsPresets } from '../lib/settings'
+import { UserMenu } from './UserMenu'
 
 export interface StatusBarProps {
   status: ConnStatus
@@ -138,6 +139,7 @@ export function StatusBar({ status, endpoint, pollMs, lastUpdated, fetchLatency,
             </p>
           </div>
         )}
+        <UserMenu />
       </div>
     </div>
   )

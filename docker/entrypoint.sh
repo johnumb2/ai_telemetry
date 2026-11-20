@@ -4,11 +4,13 @@
 #   - __METRICS_LOCATION__ : the path the app polls (derived from the URL's path)
 #   - __METRICS_PROXY__    : the absolute URL to the metrics endpoint
 #   - __HOST_METRICS_PROXY__ : absolute URL to the in-container hoststats sidecar
+#   - __AUTH_PROXY__       : absolute URL to the in-container auths sidecar
 set -eu
 
 APP_PORT="${APP_PORT:-80}"
 METRICS_URL="${METRICS_URL:-http://127.0.0.1:18982/metrics}"
 HOST_METRICS_URL="${HOST_METRICS_URL:-http://127.0.0.1:9340/metrics}"
+AUTH_URL="${AUTH_URL:-http://127.0.0.1:9341}"
 
 # Normalize scheme
 case "${METRICS_URL}" in
@@ -40,14 +42,31 @@ p_ns="${p%/}"
 loc="/${p_ns#/}"
 proxy="${scheme}://${hp}${p_ns}"
 
+# auth URL is used bare (proxy_pass <url>/authz and proxy_pass <url>), so strip
+# a trailing slash to avoid a double slash.
+auth_url="${AUTH_URL%/}"
+
 sed -e "s|__APP_PORT__|${APP_PORT}|g" \
     -e "s|__METRICS_LOCATION__|${loc}|g" \
     -e "s|__METRICS_PROXY__|${proxy}|g" \
     -e "s|__HOST_METRICS_PROXY__|${HOST_METRICS_URL}|g" \
+    -e "s|__AUTH_PROXY__|${auth_url}|g" \
     /opt/pulse/nginx.conf.template > /etc/nginx/conf.d/default.conf
 
-# Start the host telemetry sidecar in the background; nginx proxies /host-metrics to it.
+# Start the auth sidecar (SQLite) and the host telemetry sidecar in the
+# background; nginx proxies /api/* + /__auth -> auths and /host-metrics -> hoststats.
+/opt/pulse/auths &
 /opt/pulse/hoststats &
 
-echo "[pulse] listening on :${APP_PORT} | proxying ${loc} -> ${proxy} | host-metrics -> ${HOST_METRICS_URL}"
+# Wait for auths to open its port (busybox wget, no curl/nc on alpine); fall
+# back to a short fixed delay. nginx's auth_request subrequests fail-closed
+# (401) until auths answers, so the endpoints stay gated the whole time.
+i=0
+while [ "$i" -lt 50 ]; do
+  if wget "${auth_url}/healthz" 2>/dev/null; then break; fi
+  i=$((i + 1))
+  sleep 0.2
+done
+
+echo "[pulse] listening on :${APP_PORT} | proxying ${loc} -> ${proxy} | host-metrics -> ${HOST_METRICS_URL} | auths -> ${auth_url}"
 exec nginx -g "daemon off;"

@@ -14,6 +14,25 @@ services:
     #   METRICS_URL=http://127.0.0.1:18982/metrics (no port mapping needed)
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    # Persist the SQLite auth db (/data/pulse.db) and the local mail spool
+    # (used for forgot-password emails when SMTP is not configured).
+    volumes:
+      - ./data:/data
     environment:
       # Change 18982 to whatever port vLLM serves its API/metrics on
       METRICS_URL: http://host.docker.internal:18982/metrics
+      # --- auth (the /data SQLite db + the local/SMTP mail spool) ---
+      # Seeds the first admin account on first run (empty users table only).
+      INIT_USERNAME: johnumb
+      INIT_EMAIL: johnumb@gmail.com
+      INIT_PASSWORD: asdqwe123
+      # Base URL used to build the forgot-password reset link.
+      PUBLIC_BASE_URL: http://192.168.0.104:8080
+      # Leave SMTP_HOST empty to write reset emails to /data/mail/*.eml (local
+      # mail mode) instead of sending via SMTP. To use SMTP, set SMTP_HOST,
+      # SMTP_PORT, and (optionally) SMTP_USER/SMTP_PASS/SMTP_FROM.
+      SMTP_HOST: ""
+      SMTP_PORT: "587"
+      SMTP_USER: ""
+      SMTP_PASS: ""
+      SMTP_FROM: ""

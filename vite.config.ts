@@ -13,6 +13,12 @@ export default defineConfig({
         target: 'http://192.168.0.104:18982/metrics',
         changeOrigin: true,
       },
+      // auths sidecar (local dev) — all /api/* auth endpoints. In dev the
+      // frontend is static; the login/API calls hit this proxy directly.
+      '/api': {
+        target: 'http://127.0.0.1:9341',
+        changeOrigin: true,
+      },
     },
   },
   preview: {
@@ -20,6 +26,10 @@ export default defineConfig({
     proxy: {
       '/metrics': {
         target: 'http://192.168.0.104:18982/metrics',
+        changeOrigin: true,
+      },
+      '/api': {
+        target: 'http://127.0.0.1:9341',
         changeOrigin: true,
       },
     },

@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import type { CSSProperties } from 'react'
 import { useMetrics } from './lib/useMetrics'
+import { useAuth } from './lib/useAuth'
 import { computeSecondaryChips } from './lib/helpers'
 import { METRICS, MetricFamily } from './lib/derive'
 import { Parsed } from './types'
@@ -10,6 +11,7 @@ import { MetricsExplorer } from './components/MetricsExplorer'
 import { MetricChart } from './components/MetricChart'
 import { StatusBar } from './components/StatusBar'
 import { HostTelemetrySection } from './components/HostTelemetrySection'
+import { LoginPage } from './components/LoginPage'
 
 const FAMILY_COLOR: Record<MetricFamily, string> = {
   cyan: 'var(--cyan)',
@@ -21,6 +23,40 @@ const FAMILY_COLOR: Record<MetricFamily, string> = {
 }
 
 export default function App() {
+  const { user, status: authStatus } = useAuth()
+  // The password-reset link (email → ?token=...) is handled before auth.
+  const token = useMemo(() => new URLSearchParams(window.location.search).get('token'), [])
+
+  // While the session is being resolved, show a splash so the dashboard
+  // (which needs credentials for /metrics) does not flash or 401.
+  if (authStatus === 'loading') {
+    return (
+      <div className="auth-splash">
+        <span className="auth-splash-wordmark">PULSE</span>
+        <span className="auth-splash-hint">Loading…</span>
+      </div>
+    )
+  }
+
+  // Signed out: show the login / forgot-password / reset form.
+  if (authStatus === 'out' || !user) {
+    return (
+      <LoginPage
+        token={token}
+        onResetDone={() => {
+          // Clear the one-time token so re-loading shows the login screen.
+          const url = new URL(window.location.href)
+          url.searchParams.delete('token')
+          window.history.replaceState({}, '', url.toString())
+        }}
+      />
+    )
+  }
+
+  return <Dashboard />
+}
+
+function Dashboard() {
   const { state, settings, enableDemo, disableDemo, setEndpoint, setPollMs, setSelectedChartMetric } = useMetrics()
   const chips = computeSecondaryChips(state.samples)
   const kpi = METRICS.filter((m) => m.isKpi)
