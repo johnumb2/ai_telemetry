@@ -269,6 +269,24 @@ export const METRICS: MetricSpec[] = [
   { id: 'cpu', label: 'CPU (cores)', baseName: 'process_cpu_seconds_total', stat: 'rate', unit: '', scale: 1, family: 'blue', isKpi: false },
 ]
 
+/**
+ * Host telemetry gauges reported by the Go hoststats sidecar (the /host-metrics
+ * endpoint). These are all plain gauges — each card reads a single value from a
+ * sample with an optional label combo. Kept separate from METRICS so the LLM
+ * chart/explorer can be driven independently from the vLLM endpoint.
+ */
+export const HOST_METRICS: MetricSpec[] = [
+  { id: 'gpuTemp', label: 'GPU temp', baseName: 'host_gpu_temp_celsius', comboLabels: { part: 'edge' }, stat: 'gauge', unit: '°C', scale: 1, family: 'rose', isKpi: true },
+  { id: 'gpuBusy', label: 'GPU busy', baseName: 'host_gpu_busy_percent', stat: 'gauge', unit: '%', scale: 1, family: 'amber', isKpi: true },
+  { id: 'gpuVram', label: 'GPU VRAM', baseName: 'host_gpu_vram_used_percent', stat: 'gauge', unit: '%', scale: 1, family: 'violet', isKpi: true },
+  { id: 'gpuPower', label: 'GPU power', baseName: 'host_gpu_power_watts', stat: 'gauge', unit: 'W', scale: 1, family: 'cyan', isKpi: true },
+  { id: 'cpuUsage', label: 'CPU usage', baseName: 'host_cpu_usage_percent', stat: 'gauge', unit: '%', scale: 1, family: 'blue', isKpi: true },
+  { id: 'cpuTemp', label: 'CPU temp', baseName: 'host_cpu_temp_celsius', stat: 'gauge', unit: '°C', scale: 1, family: 'rose', isKpi: true },
+  { id: 'cpuLoad', label: 'CPU load (1m)', baseName: 'host_cpu_load', comboLabels: { period: '1m' }, stat: 'gauge', unit: '', scale: 1, family: 'amber', isKpi: false },
+]
+
+export const hostSpecById = (id: string): MetricSpec | undefined => HOST_METRICS.find((m) => m.id === id)
+
 export const specById = (id: string): MetricSpec | undefined => METRICS.find((m) => m.id === id)
 
 function matchLabels(spec: MetricSpec, labels: SeriesLabels): boolean {
@@ -304,6 +322,18 @@ function labelsFromKey(k: string): SeriesLabels {
     if (eq !== -1) out[part.slice(0, eq)] = part.slice(eq + 1)
   }
   return out
+}
+
+/**
+ * Read the value of a single labeled series from a sample. When `labels` is
+ * empty/omitted, sums all series of `baseName` (baseSum). Returns undefined for
+ * a missing series.
+ */
+export function seriesValue(snap: SnapshotValues, baseName: string, labels?: SeriesLabels): number | undefined {
+  if (labels && Object.keys(labels).length > 0) {
+    return snap.values[seriesKey(baseName, labels)]
+  }
+  return baseSum(snap, baseName)
 }
 
 /**

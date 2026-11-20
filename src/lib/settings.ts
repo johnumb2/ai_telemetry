@@ -2,6 +2,7 @@ const STORAGE_KEY = 'pulse-dash'
 
 export interface DashSettings {
   endpoint: string
+  hostEndpoint: string
   pollMs: number
   demo: boolean
   selectedChartMetric: string
@@ -9,6 +10,7 @@ export interface DashSettings {
 
 export const DEFAULT_SETTINGS: DashSettings = {
   endpoint: '/metrics',
+  hostEndpoint: '/host-metrics',
   pollMs: 1500,
   demo: false,
   selectedChartMetric: 'tokensRate',
@@ -21,6 +23,7 @@ export function loadSettings(): DashSettings {
     if (raw) {
       const saved = JSON.parse(raw) as Partial<DashSettings>
       if (typeof saved.endpoint === 'string' && saved.endpoint) out.endpoint = saved.endpoint
+      if (typeof saved.hostEndpoint === 'string' && saved.hostEndpoint) out.hostEndpoint = saved.hostEndpoint
       if (typeof saved.pollMs === 'number' && saved.pollMs > 0) out.pollMs = saved.pollMs
       if (typeof saved.demo === 'boolean') out.demo = saved.demo
       if (typeof saved.selectedChartMetric === 'string' && saved.selectedChartMetric) {

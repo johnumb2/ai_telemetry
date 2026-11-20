@@ -1,4 +1,4 @@
-import { Sample, specValue, windowedRatio, baseSum, METRICS } from './derive'
+import { Sample, specValue, windowedRatio, baseSum, METRICS, seriesValue } from './derive'
 import { seriesKey } from '../types'
 
 export type EngineState = 'awake' | 'sleeping' | 'unknown'
@@ -39,6 +39,44 @@ export function computeSecondaryChips(samples: Sample[]): SecondaryChips {
     engine: sampleEngineState(cur),
     preemptions: preemptions ?? 0,
   }
+}
+
+export interface HostChips {
+  ramUsed: number | undefined
+  gpuFan: number | undefined
+  vramUsedGb: number | undefined
+  processes: number | undefined
+  nvmeMax: number | undefined
+  uptimeH: number | undefined
+}
+
+/** Secondary (non-card) host telemetry chips, read from the latest host sample. */
+export function computeHostChips(samples: Sample[]): HostChips {
+  const empty: HostChips = {
+    ramUsed: undefined,
+    gpuFan: undefined,
+    vramUsedGb: undefined,
+    processes: undefined,
+    nvmeMax: undefined,
+    uptimeH: undefined,
+  }
+  if (samples.length === 0) return empty
+  const cur = samples[samples.length - 1]
+
+  const ramUsed = seriesValue(cur, 'host_ram_used_percent')
+  const gpuFan = seriesValue(cur, 'host_gpu_fan_percent')
+  const vramUsedGb = seriesValue(cur, 'host_gpu_vram_used_bytes') !== undefined ? seriesValue(cur, 'host_gpu_vram_used_bytes')! / 1e9 : undefined
+  const processes = seriesValue(cur, 'host_process_count')
+
+  let nvmeMax: number | undefined
+  for (const [k, v] of Object.entries(cur.values)) {
+    if (k.startsWith('host_nvme_temp_celsius|')) nvmeMax = nvmeMax === undefined ? v : Math.max(nvmeMax, v)
+  }
+
+  const up = seriesValue(cur, 'host_uptime_seconds')
+  const uptimeH = up !== undefined ? up / 3600 : undefined
+
+  return { ramUsed, gpuFan, vramUsedGb, processes, nvmeMax, uptimeH }
 }
 
 export { windowedRatio }

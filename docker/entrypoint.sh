@@ -3,10 +3,12 @@
 #   - __APP_PORT__       : port nginx listens on (default 80)
 #   - __METRICS_LOCATION__ : the path the app polls (derived from the URL's path)
 #   - __METRICS_PROXY__    : the absolute URL to the metrics endpoint
+#   - __HOST_METRICS_PROXY__ : absolute URL to the in-container hoststats sidecar
 set -eu
 
 APP_PORT="${APP_PORT:-80}"
 METRICS_URL="${METRICS_URL:-http://127.0.0.1:18982/metrics}"
+HOST_METRICS_URL="${HOST_METRICS_URL:-http://127.0.0.1:9340/metrics}"
 
 # Normalize scheme
 case "${METRICS_URL}" in
@@ -41,7 +43,11 @@ proxy="${scheme}://${hp}${p_ns}"
 sed -e "s|__APP_PORT__|${APP_PORT}|g" \
     -e "s|__METRICS_LOCATION__|${loc}|g" \
     -e "s|__METRICS_PROXY__|${proxy}|g" \
+    -e "s|__HOST_METRICS_PROXY__|${HOST_METRICS_URL}|g" \
     /opt/pulse/nginx.conf.template > /etc/nginx/conf.d/default.conf
 
-echo "[pulse] listening on :${APP_PORT} | proxying ${loc} -> ${proxy}"
+# Start the host telemetry sidecar in the background; nginx proxies /host-metrics to it.
+/opt/pulse/hoststats &
+
+echo "[pulse] listening on :${APP_PORT} | proxying ${loc} -> ${proxy} | host-metrics -> ${HOST_METRICS_URL}"
 exec nginx -g "daemon off;"

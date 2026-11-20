@@ -8,6 +8,9 @@ import { Parsed } from '../types'
 
 export type ConnStatus = 'live' | 'reconnecting' | 'offline' | 'demo'
 
+/** Connection status of the separate host-telemetry endpoint. */
+export type HostStatus = 'live' | 'reconnecting' | 'offline'
+
 export type EventKind = 'req' | 'tokens' | 'preempt' | 'state' | 'conn' | 'rate'
 
 export interface EventEntry {
@@ -27,6 +30,11 @@ export interface MetricsState {
   events: EventEntry[]
   errorCount: number
   demoAutoOffered: boolean
+  /** Telemetry from the independent /host-metrics sidecar endpoint. */
+  hostSamples: Sample[]
+  hostParsed: Parsed | null
+  hostStatus: HostStatus
+  hostHint: string | null
 }
 
 export interface MetricsHook {
@@ -35,6 +43,7 @@ export interface MetricsHook {
   enableDemo: () => void
   disableDemo: () => void
   setEndpoint: (ep: string) => void
+  setHostEndpoint: (ep: string) => void
   setPollMs: (ms: number) => void
   setSelectedChartMetric: (id: string) => void
 }
@@ -55,6 +64,10 @@ const initialState = (): MetricsState => ({
   events: [],
   errorCount: 0,
   demoAutoOffered: false,
+  hostSamples: [],
+  hostParsed: null,
+  hostStatus: 'reconnecting',
+  hostHint: null,
 })
 
 function isCrossOrigin(endpoint: string): boolean {
@@ -89,6 +102,11 @@ export function useMetrics(): MetricsHook {
   const inflightRef = useRef<AbortController | null>(null)
   const lastEngineRef = useRef<EngineState | null>(null)
 
+  // Independent telemetry for the host sidecar (separate buffer + inflight).
+  const hostSamplesRef = useRef<Sample[]>([])
+  const hostParsedRef = useRef<Parsed | null>(null)
+  const hostInflightRef = useRef<AbortController | null>(null)
+
   const persist = useCallback((next: Partial<DashSettings>) => {
     setSettings((prev) => {
       const merged = { ...prev, ...next }
@@ -106,7 +124,7 @@ export function useMetrics(): MetricsHook {
   }, [])
 
   useEffect(() => {
-    const { demo, pollMs, endpoint } = settings
+    const { demo, pollMs, endpoint, hostEndpoint } = settings
     let cancelled = false
 
     const pushSample = (sample: Sample, parsed: Parsed, fetchMs: number | null): void => {
@@ -190,27 +208,46 @@ export function useMetrics(): MetricsHook {
       setState((p) => ({ ...p, status: 'demo', hint: null, events: eventsRef.current }))
     }
 
-    const tick = (): void => {
-      if (cancelled) return
+    const hostOnOk = (parsed: Parsed, ms: number): void => {
+      const sample = toSample(parsed)
+      hostParsedRef.current = parsed
+      hostSamplesRef.current = [...hostSamplesRef.current, sample].slice(-SAMPLE_CAP)
+      void ms
+      setState((p) => ({
+        ...p,
+        hostSamples: hostSamplesRef.current,
+        hostParsed: parsed,
+        hostStatus: 'live',
+        hostHint: null,
+      }))
+    }
 
-      if (demo) {
-        doDemoTick()
-        return
-      }
+    const hostOnError = (hint: string | null): void => {
+      setState((p) => ({
+        ...p,
+        hostStatus: 'reconnecting',
+        hostHint: hint ?? 'reconnecting…',
+      }))
+    }
 
+    // Poll one endpoint. onOk/onError are the caller-specific handlers so the
+    // LLM endpoint and the host sidecar can drive fully independent state.
+    const fetchOnce = (
+      url: string,
+      onOk: (parsed: Parsed, ms: number) => void,
+      onError: (hint: string | null) => void,
+      inflightRef: React.MutableRefObject<AbortController | null>,
+    ): void => {
       const ctl = new AbortController()
       inflightRef.current = ctl
       const started = performance.now()
       const timer = window.setTimeout(() => ctl.abort(), FETCH_TIMEOUT_MS)
 
-      fetch(endpoint, { signal: ctl.signal, cache: 'no-store' })
+      fetch(url, { signal: ctl.signal, cache: 'no-store' })
         .then((resp) => {
           window.clearTimeout(timer)
           if (!resp.ok) {
-            const hint =
-              resp.status === 404
-                ? 'endpoint not found — check your path'
-                : `HTTP ${resp.status} from endpoint`
+            const hint = resp.status === 404 ? 'endpoint not found — check your path' : `HTTP ${resp.status} from endpoint`
             onError(hint)
             return
           }
@@ -228,8 +265,8 @@ export function useMetrics(): MetricsHook {
           if (err instanceof DOMException && err.name === 'AbortError') {
             onError('fetch timed out — endpoint is not responding')
           } else {
-            const hint = isCrossOrigin(endpoint)
-              ? 'browser blocked the request — CORS. Use the dev-server proxy (`/metrics`) or enable CORS on the server'
+            const hint = isCrossOrigin(url)
+              ? 'browser blocked the request — CORS. Use the dev-server proxy or enable CORS on the server'
               : 'network error — endpoint unreachable'
             onError(hint)
           }
@@ -237,6 +274,19 @@ export function useMetrics(): MetricsHook {
         .finally(() => {
           inflightRef.current = null
         })
+    }
+
+    const tick = (): void => {
+      if (cancelled) return
+      if (demo) {
+        doDemoTick()
+        return
+      }
+
+      // Primary LLM endpoint + the independent host-telemetry sidecar.
+      // Each failure is handled by its own onError, so they never interfere.
+      fetchOnce(endpoint, onOk, onError, inflightRef)
+      if (hostEndpoint) fetchOnce(hostEndpoint, hostOnOk, hostOnError, hostInflightRef)
     }
 
     const intervalId = window.setInterval(tick, pollMs)
@@ -249,14 +299,19 @@ export function useMetrics(): MetricsHook {
         inflightRef.current.abort()
         inflightRef.current = null
       }
+      if (hostInflightRef.current) {
+        hostInflightRef.current.abort()
+        hostInflightRef.current = null
+      }
     }
   }, [settings, appendEvent])
 
   const enableDemo = useCallback(() => persist({ demo: true }), [persist])
   const disableDemo = useCallback(() => persist({ demo: false }), [persist])
   const setEndpoint = useCallback((ep: string) => persist({ endpoint: ep }), [persist])
+  const setHostEndpoint = useCallback((ep: string) => persist({ hostEndpoint: ep }), [persist])
   const setPollMs = useCallback((ms: number) => persist({ pollMs: ms }), [persist])
   const setSelectedChartMetric = useCallback((id: string) => persist({ selectedChartMetric: id }), [persist])
 
-  return { state, settings, enableDemo, disableDemo, setEndpoint, setPollMs, setSelectedChartMetric }
+  return { state, settings, enableDemo, disableDemo, setEndpoint, setHostEndpoint, setPollMs, setSelectedChartMetric }
 }

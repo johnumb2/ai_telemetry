@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react'
 import { categoryOf, displayMetricName } from '../lib/parser'
 import { Parsed, seriesKey, MetricType } from '../types'
 
-type Category = 'all' | 'vllm' | 'process' | 'python' | 'http' | 'other'
-const CATEGORIES: Category[] = ['all', 'vllm', 'process', 'python', 'http']
+type Category = 'all' | 'vllm' | 'process' | 'python' | 'http' | 'host' | 'other'
+const CATEGORIES: Category[] = ['all', 'vllm', 'host', 'process', 'python', 'http']
 
 export interface MetricsExplorerProps {
   parsed: Parsed | null

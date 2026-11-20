@@ -5,6 +5,9 @@ services:
     ports:
       - "8080:80"
     restart: unless-stopped
+    # Share the host PID namespace so the hoststats sidecar reads the host's
+    # /proc and /sys telemetry (CPU, GPU, RAM, ...) rather than the container's.
+    pid: host
     # Reach the vLLM server from this container.
     # - On the vLLM host (bridge network): resolve the host via host.docker.internal
     # - Alternative: add `network_mode: host`, drop ports, and set

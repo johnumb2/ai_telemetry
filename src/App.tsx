@@ -1,12 +1,15 @@
+import { useMemo } from 'react'
 import type { CSSProperties } from 'react'
 import { useMetrics } from './lib/useMetrics'
 import { computeSecondaryChips } from './lib/helpers'
 import { METRICS, MetricFamily } from './lib/derive'
+import { Parsed } from './types'
 import { KpiCard } from './components/KpiCard'
 import { ActivityFeed } from './components/ActivityFeed'
 import { MetricsExplorer } from './components/MetricsExplorer'
 import { MetricChart } from './components/MetricChart'
 import { StatusBar } from './components/StatusBar'
+import { HostTelemetrySection } from './components/HostTelemetrySection'
 
 const FAMILY_COLOR: Record<MetricFamily, string> = {
   cyan: 'var(--cyan)',
@@ -21,6 +24,22 @@ export default function App() {
   const { state, settings, enableDemo, disableDemo, setEndpoint, setPollMs, setSelectedChartMetric } = useMetrics()
   const chips = computeSecondaryChips(state.samples)
   const kpi = METRICS.filter((m) => m.isKpi)
+
+  // Merge the vLLM scrape with the host sidecar scrape so the Metrics Explorer
+  // surfaces host_gpu_/host_cpu_ gauges alongside the vLLM series in one table.
+  const mergedParsed = useMemo<Parsed | null>(() => {
+    const primary = state.parsed
+    const host = state.hostParsed
+    if (!primary && !host) return null
+    if (!host) return primary
+    if (!primary) return host
+    return {
+      values: { ...host.values, ...primary.values },
+      types: { ...host.types, ...primary.types },
+      help: { ...host.help, ...primary.help },
+      series: [...host.series, ...primary.series],
+    }
+  }, [state.parsed, state.hostParsed])
 
   return (
     <div className="app-shell">
@@ -76,8 +95,10 @@ export default function App() {
           onEnableDemo={enableDemo}
         />
 
+        <HostTelemetrySection hostSamples={state.hostSamples} hostStatus={state.hostStatus} />
+
         <div className="two-col">
-          <MetricsExplorer parsed={state.parsed} />
+          <MetricsExplorer parsed={mergedParsed} />
           <ActivityFeed events={state.events} />
         </div>
       </main>

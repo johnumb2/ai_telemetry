@@ -184,8 +184,9 @@ function parseJsonMetrics(raw: string): Parsed {
 }
 
 /** Classify the category an explorer row belongs to. */
-export function categoryOf(name: string): 'vllm' | 'process' | 'python' | 'http' | 'other' {
+export function categoryOf(name: string): 'vllm' | 'process' | 'python' | 'http' | 'host' | 'other' {
   if (name.startsWith('vllm:')) return 'vllm'
+  if (name.startsWith('host_')) return 'host'
   if (name.startsWith('process_') || name.startsWith('node_')) return 'process'
   if (name.startsWith('python_')) return 'python'
   if (name.startsWith('http_') || name === 'http_requests_total' || name.startsWith('request_')) {
